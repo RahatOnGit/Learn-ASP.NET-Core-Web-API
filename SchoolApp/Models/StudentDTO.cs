@@ -16,10 +16,10 @@ namespace SchoolApp.Models
 
         [EmailAddress]
         public string Email { get; set; }
-        [Required]
-        public string Address { get; set; }
+       
+        public string? Address { get; set; }
 
-        public DateTime DOB { get; set; }
+        public DateTime DOB { get; set; } 
 
 
 

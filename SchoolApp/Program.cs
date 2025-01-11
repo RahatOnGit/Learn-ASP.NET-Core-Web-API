@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using SchoolApp.Configurations;
 using SchoolApp.Data;
 using SchoolApp.SomeHelper;
 using Serilog;
+using AutoMapper;
+using SchoolApp.Data.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +27,8 @@ builder.Services.AddControllers(options=>options.ReturnHttpNotAcceptable=true).A
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddTransient<IStudentRepository, Repository>();
 
 var app = builder.Build();
 

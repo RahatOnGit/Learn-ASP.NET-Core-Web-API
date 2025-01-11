@@ -14,7 +14,7 @@ namespace SchoolApp.Data.Config
 
             builder.Property(n => n.StudentName).HasMaxLength(250);
 
-            builder.Property(n => n.Address).IsRequired().HasMaxLength(250);
+            builder.Property(n => n.Address).IsRequired(false).HasMaxLength(250);
 
             builder.Property(n => n.Email).IsRequired().HasMaxLength(250);
 

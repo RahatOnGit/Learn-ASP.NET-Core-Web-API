@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.JsonPatch;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SchoolApp.Data;
+using SchoolApp.Data.Repository;
 using SchoolApp.Models;
 using System.Linq;
 using System.Net;
@@ -16,18 +19,23 @@ namespace SchoolApp.Controllers
     {
 
         private readonly ILogger<StudentController> _logger;
-        private readonly CollegeDbContext _dbContext;
+        private readonly IMapper _mapper;
 
-        public StudentController(ILogger<StudentController> logger, CollegeDbContext dbContext)
+        private readonly IStudentRepository _studentRepository;                      
+
+        public StudentController(ILogger<StudentController> logger, IStudentRepository studentRepository,
+            IMapper mapper)
         {
             _logger = logger;
-            _dbContext = dbContext;
+            _studentRepository = studentRepository;
+            _mapper = mapper;
         }
+
         [HttpGet]
         [Route("All")]
         [ProducesResponseType(200)]
         [ProducesResponseType(500)]
-        public IActionResult GetStudents()
+        public async Task<IActionResult> GetStudents()
         {
             _logger.LogTrace("All Students called");
             _logger.LogDebug("All Students called");
@@ -40,15 +48,9 @@ namespace SchoolApp.Controllers
 
 
                 
-            var students_dto = _dbContext.Students.Select(s=> new StudentDTO()
-            {
-                Id = s.Id,
-                StudentName = s.StudentName,
-                Email = s.Email,
-                Address = s.Address,
-                DOB = s.DOB
+           var students = await _studentRepository.GetAll();
 
-            }).ToList();
+           var students_dto = _mapper.Map<List<StudentDTO>>(students);
             
 
             
@@ -66,7 +68,7 @@ namespace SchoolApp.Controllers
 
 
 
-        public IActionResult GetStudentById(int id)
+        public async Task<IActionResult> GetStudentById(int id)
         {
             if (id<=0)
             {
@@ -74,7 +76,7 @@ namespace SchoolApp.Controllers
                 return BadRequest();
             }
            
-            var data =  _dbContext.Students.Where(c => c.Id == id).FirstOrDefault(); 
+            var data =  await _studentRepository.GetById(id);
             
             if (data==null)
             {
@@ -82,24 +84,16 @@ namespace SchoolApp.Controllers
                 return NotFound($"The student Id= {id} doesn't exists.");
             }
 
-            var s = new StudentDTO()
-            {
-                Id = data.Id,
-                StudentName = data.StudentName,
-                Email = data.Email,
-                Address = data.Address,
-                DOB = data.DOB
-
-            };
+            var s = _mapper.Map<StudentDTO>(data);
 
             return Ok(s);
         }
 
         [HttpGet]
         [Route("{name:alpha}", Name ="GetStudentByName")]
-        public IActionResult GetStudentByName(string name)
+        public async Task<IActionResult> GetStudentByName(string name)
         {
-            return Ok(_dbContext.Students.Where(c => c.StudentName == name).FirstOrDefault());
+            return Ok(await _studentRepository.GetByName(name));
 
         }
 
@@ -128,10 +122,10 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(500)]
 
 
-        public IActionResult CreateStudent([FromBody]StudentDTO model)
+        public async Task<IActionResult> CreateStudent([FromBody]StudentDTO model)
         {
-            
-            if (model==null)
+
+            if (model == null)
                 return BadRequest();
 
             //if (model.AdmissionDate < DateTime.Now)
@@ -142,21 +136,13 @@ namespace SchoolApp.Controllers
             //    return BadRequest(ModelState);
             //}
 
-          
 
-            Student student = new Student()
-            {
-                
-                StudentName=model.StudentName,
-                Email=model.Email,
-                Address = model.Address,
-                DOB = model.DOB
-            };
 
-            _dbContext.Students.Add(student);
-            _dbContext.SaveChanges(); // Committing to the DataBase
+            var student = _mapper.Map<Student>(model);
 
-            model.Id = student.Id;
+            var id = await _studentRepository.Create(student); // Committing to the DataBase
+
+            model.Id = id;
 
             return CreatedAtRoute("GetById", new {id = model.Id} ,model);
         }
@@ -165,24 +151,23 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public IActionResult UpdateStudent([FromBody] StudentDTO model)
+        public async Task<IActionResult> UpdateStudent([FromBody] StudentDTO model)
         {
             if(model.Id<=0 || model==null)
                 return BadRequest();
 
-            var student = _dbContext.Students.Where(s=>s.Id==model.Id).FirstOrDefault();
+            var student = await _studentRepository.GetById(model.Id, true);
             
             if (student==null)
                 return NotFound();
 
-            student.Email = model.Email;
-            student.Address = model.Address;
-            student.StudentName = model.StudentName;
+            var newStudent = _mapper.Map<Student>(model);
 
-            _dbContext.SaveChanges();
+           
 
-            return NoContent();
+           await _studentRepository.Update(newStudent);
 
+           return NoContent();
         }
 
 
@@ -192,24 +177,17 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public IActionResult UpdateStudentPartial(int id, [FromBody] JsonPatchDocument<StudentDTO> model)
+        public async Task<IActionResult> UpdateStudentPartial(int id, [FromBody] JsonPatchDocument<StudentDTO> model)
         {
             if (id <= 0 || model == null)
                 return BadRequest();
 
-            var student = _dbContext.Students.Where(s => s.Id == id).FirstOrDefault();
+            var student = await _studentRepository.GetById(id, true);
 
             if (student == null)
                 return NotFound();
 
-            var studentDTO = new StudentDTO
-            {
-                Id = student.Id,
-                Email = student.Email,
-                Address = student.Address,
-                StudentName = student.StudentName,
-                DOB = student.DOB
-            };
+            var studentDTO = _mapper.Map<StudentDTO>(student);
 
             model.ApplyTo(studentDTO, ModelState);
 
@@ -218,12 +196,9 @@ namespace SchoolApp.Controllers
                 return BadRequest(ModelState);
             }
 
-            student.Email = studentDTO.Email;
-            student.Address = studentDTO.Address;
-            student.StudentName = studentDTO.StudentName;
-            student.DOB = studentDTO.DOB;
+            student = _mapper.Map<Student>(studentDTO);
 
-            _dbContext.SaveChanges();
+            await _studentRepository.Update(student);
 
             return NoContent();
 
@@ -237,18 +212,17 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
 
-        public IActionResult DeleteStudent(int id)
+        public async Task<IActionResult> DeleteStudent(int id)
         {
             if (id<=0)
                 return BadRequest();
 
-            var student = _dbContext.Students.Where(s => s.Id == id).FirstOrDefault();
+            var student = await _studentRepository.GetById(id);
 
             if (student == null)
                 return NotFound($"The student with id = {id} isn't found");
             
-            _dbContext.Students.Remove(student);
-            _dbContext.SaveChanges();
+            await _studentRepository.Delete(student);
 
             return Ok(true);
 
