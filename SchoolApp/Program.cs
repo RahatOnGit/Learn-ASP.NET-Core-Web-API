@@ -29,6 +29,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddTransient<IStudentRepository, Repository>();
+builder.Services.AddScoped(typeof(ISchoolRepository<>), typeof(SchoolRepository<>));
+
 
 var app = builder.Build();
 

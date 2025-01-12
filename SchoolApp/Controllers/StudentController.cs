@@ -21,9 +21,9 @@ namespace SchoolApp.Controllers
         private readonly ILogger<StudentController> _logger;
         private readonly IMapper _mapper;
 
-        private readonly IStudentRepository _studentRepository;                      
+        private readonly ISchoolRepository<Student> _studentRepository;                      
 
-        public StudentController(ILogger<StudentController> logger, IStudentRepository studentRepository,
+        public StudentController(ILogger<StudentController> logger, ISchoolRepository<Student> studentRepository,
             IMapper mapper)
         {
             _logger = logger;
@@ -75,8 +75,8 @@ namespace SchoolApp.Controllers
                 _logger.LogWarning("Warning");
                 return BadRequest();
             }
-           
-            var data =  await _studentRepository.GetById(id);
+
+            var data = await _studentRepository.GetById(student=>student.Id==id);
             
             if (data==null)
             {
@@ -90,10 +90,14 @@ namespace SchoolApp.Controllers
         }
 
         [HttpGet]
-        [Route("{name:alpha}", Name ="GetStudentByName")]
+        [Route("{name:alpha}", Name = "GetStudentByName")]
         public async Task<IActionResult> GetStudentByName(string name)
         {
-            return Ok(await _studentRepository.GetByName(name));
+            var data =  await _studentRepository.GetByName(student => student.StudentName.ToLower().Contains(name.ToLower()));
+            
+            var s = _mapper.Map<StudentDTO>(data);
+
+            return Ok(s);
 
         }
 
@@ -109,7 +113,7 @@ namespace SchoolApp.Controllers
         //    {
         //        return NotFound();
         //    }
-           
+
         //    _dbContext.Students.Remove(data);
         //    _dbContext.SaveChanges();
 
@@ -140,9 +144,9 @@ namespace SchoolApp.Controllers
 
             var student = _mapper.Map<Student>(model);
 
-            var id = await _studentRepository.Create(student); // Committing to the DataBase
+            var data = await _studentRepository.Create(student); // Committing to the DataBase
 
-            model.Id = id;
+            model.Id = data.Id;
 
             return CreatedAtRoute("GetById", new {id = model.Id} ,model);
         }
@@ -156,7 +160,7 @@ namespace SchoolApp.Controllers
             if(model.Id<=0 || model==null)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(model.Id, true);
+            var student = await _studentRepository.GetById(student=>student.Id==model.Id, true);
             
             if (student==null)
                 return NotFound();
@@ -182,7 +186,7 @@ namespace SchoolApp.Controllers
             if (id <= 0 || model == null)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(id, true);
+            var student = await _studentRepository.GetById(student => student.Id == id, true);
 
             if (student == null)
                 return NotFound();
@@ -217,7 +221,7 @@ namespace SchoolApp.Controllers
             if (id<=0)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(id);
+            var student = await _studentRepository.GetById(student => student.Id == id);
 
             if (student == null)
                 return NotFound($"The student with id = {id} isn't found");
