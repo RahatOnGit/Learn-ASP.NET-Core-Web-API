@@ -3,3 +3,8 @@ AutoMapper.
 And Repository Pattern.
 
 Alhamdulillah, learnt today generic repository pattern.
+
+Alhamdulillah, by the blessings of Allah(SWT) , toady I have learnt CORS. 
+Default and Named CORS.
+Adding CORS at controller and routing.
+And Disabling CORS.
