@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -14,16 +15,15 @@ namespace SchoolApp.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-
     public class StudentController : ControllerBase
     {
 
         private readonly ILogger<StudentController> _logger;
         private readonly IMapper _mapper;
 
-        private readonly ISchoolRepository<Student> _studentRepository;                      
+        private readonly IStudentRepository _studentRepository;                      
 
-        public StudentController(ILogger<StudentController> logger, ISchoolRepository<Student> studentRepository,
+        public StudentController(ILogger<StudentController> logger, IStudentRepository studentRepository,
             IMapper mapper)
         {
             _logger = logger;
@@ -76,7 +76,7 @@ namespace SchoolApp.Controllers
                 return BadRequest();
             }
 
-            var data = await _studentRepository.GetById(student=>student.Id==id);
+            var data = await _studentRepository.GetByFilterValue(student=>student.Id==id);
             
             if (data==null)
             {
@@ -93,7 +93,7 @@ namespace SchoolApp.Controllers
         [Route("{name:alpha}", Name = "GetStudentByName")]
         public async Task<IActionResult> GetStudentByName(string name)
         {
-            var data =  await _studentRepository.GetByName(student => student.StudentName.ToLower().Contains(name.ToLower()));
+            var data =  await _studentRepository.GetByFilterValue(student => student.StudentName.ToLower().Contains(name.ToLower()));
             
             var s = _mapper.Map<StudentDTO>(data);
 
@@ -160,7 +160,7 @@ namespace SchoolApp.Controllers
             if(model.Id<=0 || model==null)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(student=>student.Id==model.Id, true);
+            var student = await _studentRepository.GetByFilterValue(student=>student.Id==model.Id, true);
             
             if (student==null)
                 return NotFound();
@@ -186,7 +186,7 @@ namespace SchoolApp.Controllers
             if (id <= 0 || model == null)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(student => student.Id == id, true);
+            var student = await _studentRepository.GetByFilterValue(student => student.Id == id, true);
 
             if (student == null)
                 return NotFound();
@@ -221,7 +221,7 @@ namespace SchoolApp.Controllers
             if (id<=0)
                 return BadRequest();
 
-            var student = await _studentRepository.GetById(student => student.Id == id);
+            var student = await _studentRepository.GetByFilterValue(student => student.Id == id);
 
             if (student == null)
                 return NotFound($"The student with id = {id} isn't found");
@@ -231,6 +231,20 @@ namespace SchoolApp.Controllers
             return Ok(true);
 
 
+        }
+
+        [HttpGet("ByFees")]
+     
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetStudebtDataByFees()
+        {
+            var data = await _studentRepository.GetStudentsByFeeStatus(0);
+            if (data == null)
+            {
+                return Ok();
+            }
+
+            return BadRequest();
         }
     }
 }

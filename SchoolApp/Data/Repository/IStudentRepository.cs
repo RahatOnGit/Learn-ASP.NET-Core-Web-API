@@ -1,17 +1,7 @@
 ﻿namespace SchoolApp.Data.Repository
 {
-    public interface IStudentRepository
+    public interface IStudentRepository : ISchoolRepository<Student>
     {
-        Task<List<Student>> GetAll();
-
-        Task<Student> GetById(int id, bool useAsNoTracking = false);
-
-        Task<Student> GetByName(string name);
-
-        Task<int> Create(Student student);
-
-        Task<int> Update(Student student);
-
-        Task<bool> Delete(Student student);
+       Task<List<Student>> GetStudentsByFeeStatus(int feeStatus);
     }
 }

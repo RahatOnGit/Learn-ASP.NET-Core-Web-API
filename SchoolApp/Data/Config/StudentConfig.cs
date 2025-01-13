@@ -38,6 +38,11 @@ namespace SchoolApp.Data.Config
 
 
             });
+
+            builder.HasOne(n => n.Department)
+                .WithMany(n => n.Students)
+                .HasForeignKey(n => n.DeptId)
+                .HasConstraintName("FK_Students_Department");
         }
     }
 }

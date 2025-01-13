@@ -31,6 +31,28 @@ builder.Services.AddAutoMapper(typeof(Program));
 builder.Services.AddTransient<IStudentRepository, Repository>();
 builder.Services.AddScoped(typeof(ISchoolRepository<>), typeof(SchoolRepository<>));
 
+//Adding CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+    });
+
+    options.AddPolicy("AllowOnOnlyLocalHost", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200").AllowAnyHeader().AllowAnyMethod();
+    });
+
+    options.AddPolicy("AllowOnOnlyGoogle", policy =>
+    {
+        policy.WithOrigins("http://google.com","http://gmail.com").WithHeaders("Accept", "Something").WithMethods("GET", "POST");
+    });
+
+
+
+
+});
 
 var app = builder.Build();
 
@@ -43,8 +65,24 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
+
+app.UseCors();
+
 app.UseAuthorization();
 
-app.MapControllers();
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapGet("/api/ok",
+        context => context.Response.WriteAsync("echo"))
+        .RequireCors("AllowOnOnlyLocalHost");
+
+    endpoints.MapControllers()
+             .RequireCors();
+
+    endpoints.MapGet("/api/ok5",
+        context => context.Response.WriteAsync("echo2"));
+
+});
 
 app.Run();

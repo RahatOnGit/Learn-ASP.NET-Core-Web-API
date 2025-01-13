@@ -43,7 +43,7 @@ namespace SchoolApp.Data.Repository
 
         }
 
-        public async Task<T> GetById(Expression<Func<T,bool>> filter, bool useAsNoTracking = false)
+        public async Task<T> GetByFilterValue(Expression<Func<T,bool>> filter, bool useAsNoTracking = false)
         {
             if (useAsNoTracking)
                 return await _dbSet.AsNoTracking().Where(filter).FirstOrDefaultAsync();
@@ -52,10 +52,7 @@ namespace SchoolApp.Data.Repository
 
         }
 
-        public async Task<T> GetByName(Expression<Func<T, bool>> filter)
-        {
-            return await _dbSet.Where(filter).FirstOrDefaultAsync();
-        }
+       
 
 
     }
