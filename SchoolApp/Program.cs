@@ -5,6 +5,10 @@ using SchoolApp.SomeHelper;
 using Serilog;
 using AutoMapper;
 using SchoolApp.Data.Repository;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,6 +58,25 @@ builder.Services.AddCors(options =>
 
 });
 
+// adding jwt
+var key = Encoding.ASCII.GetBytes(builder.Configuration.GetValue<string>("JWTSecret"));
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+}).AddJwtBearer(options =>
+{
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters()
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false
+    };
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -69,6 +92,8 @@ app.UseRouting();
 
 app.UseCors();
 
+app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.UseEndpoints(endpoints =>
@@ -81,7 +106,7 @@ app.UseEndpoints(endpoints =>
              .RequireCors();
 
     endpoints.MapGet("/api/ok5",
-        context => context.Response.WriteAsync("echo2"));
+        context => context.Response.WriteAsync(builder.Configuration.GetValue<string>("JWTSecret")));
 
 });
 

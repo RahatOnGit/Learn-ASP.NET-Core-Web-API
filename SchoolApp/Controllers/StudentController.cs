@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +16,7 @@ namespace SchoolApp.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class StudentController : ControllerBase
     {
 
@@ -23,12 +25,14 @@ namespace SchoolApp.Controllers
 
         private readonly IStudentRepository _studentRepository;                      
 
+        private APIResponse _response;
         public StudentController(ILogger<StudentController> logger, IStudentRepository studentRepository,
             IMapper mapper)
         {
             _logger = logger;
             _studentRepository = studentRepository;
             _mapper = mapper;
+            _response = new();
         }
 
         [HttpGet]
@@ -46,17 +50,36 @@ namespace SchoolApp.Controllers
             _logger.LogCritical("All Students called");
 
 
+            try
+            {
+
+                var students = await _studentRepository.GetAll();
+
+                _response.Data = _mapper.Map<List<StudentDTO>>(students);
+
+                _response.Status = true;
+
+                _response.StatusCode = HttpStatusCode.OK;
 
                 
-           var students = await _studentRepository.GetAll();
 
-           var students_dto = _mapper.Map<List<StudentDTO>>(students);
-            
+                
 
-            
+                return Ok(_response);
+            }
 
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
 
-            return Ok(students_dto);
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
+          
 
         }
 
@@ -70,34 +93,82 @@ namespace SchoolApp.Controllers
 
         public async Task<IActionResult> GetStudentById(int id)
         {
-            if (id<=0)
+            try
             {
-                _logger.LogWarning("Warning");
-                return BadRequest();
+                if (id <= 0)
+                {
+                    _logger.LogWarning("Warning");
+                    return BadRequest();
+                }
+
+                var data = await _studentRepository.GetByFilterValue(student => student.Id == id);
+
+                if (data == null)
+                {
+                    _logger.LogError("Some error");
+                    return NotFound($"The student Id= {id} doesn't exists.");
+                }
+
+                _response.Data = _mapper.Map<StudentDTO>(data);
+
+                _response.Status = true;
+
+                _response.StatusCode = HttpStatusCode.OK;
+
+                return Ok(_response);
+
+
+
             }
 
-            var data = await _studentRepository.GetByFilterValue(student=>student.Id==id);
-            
-            if (data==null)
+
+
+
+            catch (Exception ex)
             {
-                _logger.LogError("Some error");
-                return NotFound($"The student Id= {id} doesn't exists.");
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
+
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
             }
-
-            var s = _mapper.Map<StudentDTO>(data);
-
-            return Ok(s);
         }
 
         [HttpGet]
         [Route("{name:alpha}", Name = "GetStudentByName")]
         public async Task<IActionResult> GetStudentByName(string name)
         {
-            var data =  await _studentRepository.GetByFilterValue(student => student.StudentName.ToLower().Contains(name.ToLower()));
-            
-            var s = _mapper.Map<StudentDTO>(data);
 
-            return Ok(s);
+            try
+            {
+                var data = await _studentRepository.GetByFilterValue(student => student.StudentName.ToLower().Contains(name.ToLower()));
+
+                _response.Data = _mapper.Map<StudentDTO>(data);
+
+                _response.Status = true;
+
+                _response.StatusCode = HttpStatusCode.OK;
+
+
+
+
+                return Ok(_response);
+            }
+
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
+
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
 
         }
 
@@ -128,27 +199,47 @@ namespace SchoolApp.Controllers
 
         public async Task<IActionResult> CreateStudent([FromBody]StudentDTO model)
         {
+            try
+            {
 
-            if (model == null)
-                return BadRequest();
+                if (model == null)
+                    return BadRequest();
 
-            //if (model.AdmissionDate < DateTime.Now)
-            //{
-            //    ModelState.AddModelError("Admission Date Error", "Admission date must be " +
-            //        "greater than or equal to current time");
+                //if (model.AdmissionDate < DateTime.Now)
+                //{
+                //    ModelState.AddModelError("Admission Date Error", "Admission date must be " +
+                //        "greater than or equal to current time");
 
-            //    return BadRequest(ModelState);
-            //}
+                //    return BadRequest(ModelState);
+                //}
 
 
 
-            var student = _mapper.Map<Student>(model);
+                var student = _mapper.Map<Student>(model);
 
-            var data = await _studentRepository.Create(student); // Committing to the DataBase
+                var data = await _studentRepository.Create(student); // Committing to the DataBase
 
-            model.Id = data.Id;
+                model.Id = data.Id;
 
-            return CreatedAtRoute("GetById", new {id = model.Id} ,model);
+                _response.Data = model;
+                _response.Status = true;
+                _response.StatusCode = HttpStatusCode.OK;
+
+                return CreatedAtRoute("GetById", new { id = model.Id }, _response);
+
+            }
+
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
+
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
         }
         [HttpPut]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -157,21 +248,37 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateStudent([FromBody] StudentDTO model)
         {
-            if(model.Id<=0 || model==null)
-                return BadRequest();
 
-            var student = await _studentRepository.GetByFilterValue(student=>student.Id==model.Id, true);
-            
-            if (student==null)
-                return NotFound();
+            try
+            {
+                if (model.Id <= 0 || model == null)
+                    return BadRequest();
 
-            var newStudent = _mapper.Map<Student>(model);
+                var student = await _studentRepository.GetByFilterValue(student => student.Id == model.Id, true);
 
-           
+                if (student == null)
+                    return NotFound();
 
-           await _studentRepository.Update(newStudent);
+                var newStudent = _mapper.Map<Student>(model);
 
-           return NoContent();
+
+
+                await _studentRepository.Update(newStudent);
+
+                return NoContent();
+            }
+
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
+
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
         }
 
 
@@ -183,28 +290,47 @@ namespace SchoolApp.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateStudentPartial(int id, [FromBody] JsonPatchDocument<StudentDTO> model)
         {
-            if (id <= 0 || model == null)
-                return BadRequest();
-
-            var student = await _studentRepository.GetByFilterValue(student => student.Id == id, true);
-
-            if (student == null)
-                return NotFound();
-
-            var studentDTO = _mapper.Map<StudentDTO>(student);
-
-            model.ApplyTo(studentDTO, ModelState);
-
-            if (!ModelState.IsValid)
+            try
             {
-                return BadRequest(ModelState);
+                if (id <= 0 || model == null)
+                    return BadRequest();
+
+                var student = await _studentRepository.GetByFilterValue(student => student.Id == id, true);
+
+                if (student == null)
+                    return NotFound();
+
+                var studentDTO = _mapper.Map<StudentDTO>(student);
+
+                model.ApplyTo(studentDTO, ModelState);
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                student = _mapper.Map<Student>(studentDTO);
+
+                await _studentRepository.Update(student);
+
+                return NoContent();
+
             }
 
-            student = _mapper.Map<Student>(studentDTO);
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
 
-            await _studentRepository.Update(student);
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
 
-            return NoContent();
+
+
 
         }
 
@@ -218,17 +344,37 @@ namespace SchoolApp.Controllers
 
         public async Task<IActionResult> DeleteStudent(int id)
         {
-            if (id<=0)
-                return BadRequest();
+            try
+            {
+                if (id <= 0)
+                    return BadRequest();
 
-            var student = await _studentRepository.GetByFilterValue(student => student.Id == id);
+                var student = await _studentRepository.GetByFilterValue(student => student.Id == id);
 
-            if (student == null)
-                return NotFound($"The student with id = {id} isn't found");
-            
-            await _studentRepository.Delete(student);
+                if (student == null)
+                    return NotFound($"The student with id = {id} isn't found");
 
-            return Ok(true);
+                await _studentRepository.Delete(student);
+
+                _response.Status = true;
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.Data = true;
+
+                return Ok(_response);
+
+            }
+
+            catch (Exception ex)
+            {
+                _response.Errors.Add(ex.Message);
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.Status = false;
+
+                return new ObjectResult(_response)
+                {
+                    StatusCode = (int)HttpStatusCode.InternalServerError
+                };
+            }
 
 
         }
